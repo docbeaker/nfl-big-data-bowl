@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class TackleFeatures:
     WEIGHT_NORM = 250  # Scale by approximate mean player weight to keep values sensible
     FWIDTH = 53.3
@@ -96,13 +97,16 @@ class TackleFeatures:
         dsorted = dsorted.drop_duplicates("tidx", keep="first")
 
         # Logging: how many events are non-ambiguous
-        nopps = dsorted.groupby(cls.PLAYDEF).agg(dict(
-            tidx="nunique", tackle="max", assist="max", pff_missedTackle="max"
-        ))
+        nopps = dsorted.groupby(cls.PLAYDEF).agg(
+            dict(tidx="nunique", tackle="max", assist="max", pff_missedTackle="max")
+        )
         non_ambig = (
-            (nopps.tidx == 1) & (nopps[["tackle", "assist", "pff_missedTackle"]].sum(axis=1) == 1)
+            (nopps.tidx == 1)
+            & (nopps[["tackle", "assist", "pff_missedTackle"]].sum(axis=1) == 1)
         ).mean()
-        print(f"proportion of tackle opportunities that are non-ambiguous = {100*non_ambig:.1f}%")
+        print(
+            f"proportion of tackle opportunities that are non-ambiguous = {100*non_ambig:.1f}%"
+        )
 
         # Assume tackles & assists only happen on the last opportunity
         final_opp_idx = dsorted.groupby(cls.PLAYDEF).tidx.max().rename("tidx_max")
@@ -128,6 +132,11 @@ class TackleFeatures:
         weights = weights.fillna(1)
         dsorted = dsorted.merge(weights, left_on=cls.PLAYDEF, right_index=True)
         dsorted.weight = np.where(dsorted.pff_missedTackle == 1, dsorted.weight, 1)
+
+        # Compute the forward yards the carrier ultimately achieves
+        dsorted["yards_gained"] = (dsorted.x_final - dsorted.x_carrier) * (
+            1 - 2 * (dsorted.playDirection == "left")
+        )
 
         tackle_features = cls.add_tackle_features(dsorted)
         return dsorted, tackle_features
