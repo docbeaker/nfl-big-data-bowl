@@ -1,3 +1,5 @@
+import numpy as np
+
 class TackleFeatures:
     WEIGHT_NORM = 250  # Scale by approximate mean player weight to keep values sensible
     FWIDTH = 53.3
@@ -92,6 +94,15 @@ class TackleFeatures:
 
         # We only care about the state at the beginning of each opportunity
         dsorted = dsorted.drop_duplicates("tidx", keep="first")
+
+        # Logging: how many events are non-ambiguous
+        nopps = dsorted.groupby(cls.PLAYDEF).agg(dict(
+            tidx="nunique", tackle="max", assist="max", pff_missedTackle="max"
+        ))
+        non_ambig = (
+            (nopps.tidx == 1) & (nopps[["tackle", "assist", "pff_missedTackle"]].sum(axis=1) == 1)
+        ).mean()
+        print(f"proportion of tackle opportunities that are non-ambiguous = {100*non_ambig:.1f}%")
 
         # Assume tackles & assists only happen on the last opportunity
         final_opp_idx = dsorted.groupby(cls.PLAYDEF).tidx.max().rename("tidx_max")
